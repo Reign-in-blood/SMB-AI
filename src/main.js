@@ -1,4 +1,3 @@
-import './style.css';
 import { DEMO_ACCOUNT, APP_TITLE } from './config.js';
 import { courses } from './data/courses.js';
 
