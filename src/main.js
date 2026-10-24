@@ -66,41 +66,19 @@ function renderLogin(error = '') {
 
 function renderDashboard(selected = null) {
   if (!isLoggedIn()) return renderLogin();
-  const done = getProgress();
-  const active = courses.find(course => course.id === selected);
-  const finishedCount = done.length;
+  const active = courses.find(c => c.id === selected);
   app.innerHTML = `
     <div class="dashboard">
       <aside class="sidebar">
         <div class="brand"><span class="brand-icon">✳</span> SMB AI<span class="brand-dot">.</span></div>
-        <div class="nav-label">ESPACE ÉLÈVE</div>
-        <a class="nav-link active" href="#parcours">▦ <span>Mon parcours</span></a>
-        <div class="sidebar-bottom"><span class="avatar">S</span><div><strong>smb-ai</strong><small>Élève</small></div></div>
+        <div class="nav-label">SUPPORT DE COURS</div>
+        <button class="nav-link active nav-button" id="home">▦ <span>Les 9 niveaux</span></button>
+        <div class="sidebar-bottom"><span class="avatar">S</span><div><strong>smb-ai</strong><small>Présentation</small></div></div>
       </aside>
       <main class="main-content">
-        <header class="topbar"><span>Plateforme de formation</span><button id="logout" class="ghost-button">Déconnexion ↗</button></header>
+        <header class="topbar"><span>Support pédagogique · 9 niveaux de pratique de l'IA</span><button id="logout" class="ghost-button">Déconnexion ↗</button></header>
         <div class="page-body">
-          <div class="eyebrow">VOTRE ESPACE D'APPRENTISSAGE</div>
-          <h1 class="page-title">Apprenez l'IA. <span>Pas à pas.</span></h1>
-          <p class="page-subtitle">Neuf niveaux pour comprendre, expérimenter et progresser à votre rythme.</p>
-          <section class="hero-stats">
-            <div><small>VOTRE PROGRESSION</small><strong>${finishedCount} <em>/ 4 leçons</em></strong><div class="progress-track"><span style="width:${Math.min(100, finishedCount * 25)}%"></span></div></div>
-            <div><small>PARCOURS</small><strong>9 <em>niveaux</em></strong><p>Du premier prompt aux systèmes multimodèles.</p></div>
-            <div><small>VOTRE OBJECTIF</small><strong>01 <em>/ 09</em></strong><p>Commencez par les fondamentaux.</p></div>
-          </section>
-          ${active ? renderLesson(active, done) : `
-            <div class="section-heading"><h2>Les 9 niveaux</h2><span>01 disponible · 08 à venir</span></div>
-            <section id="parcours" class="course-grid">
-              ${courses.map(course => `
-                <article class="course-card ${course.status === 'coming' ? 'muted-card' : ''}">
-                  <div class="course-top"><span class="course-icon">${icons[course.icon]}</span><span class="course-number">NIVEAU ${String(course.id).padStart(2, '0')}</span></div>
-                  <h3>${escapeHtml(course.title)}</h3>
-                  <p>${escapeHtml(course.subtitle)}</p>
-                  <div class="course-foot"><span>${course.lessons} leçons</span>
-                    ${course.status === 'available' ? '<button class="course-action" data-open="1">Explorer →</button>' : '<span class="coming-tag">Bientôt</span>'}
-                  </div>
-                </article>`).join('')}
-            </section>`}
+          ${active ? renderLevel(active) : renderStairs()}
         </div>
       </main>
     </div>`;
@@ -108,37 +86,44 @@ function renderDashboard(selected = null) {
     sessionStorage.removeItem(AUTH_KEY);
     renderLogin();
   });
-  document.querySelectorAll('[data-open]').forEach(button => {
-    button.addEventListener('click', () => renderDashboard(Number(button.dataset.open)));
-  });
+  document.querySelector('#home')?.addEventListener('click', () => renderDashboard());
   document.querySelector('#back')?.addEventListener('click', () => renderDashboard());
-  document.querySelectorAll('[data-complete]').forEach(button => {
-    button.addEventListener('click', () => {
-      const n = Number(button.dataset.complete);
-      const next = new Set(getProgress());
-      next.has(n) ? next.delete(n) : next.add(n);
-      localStorage.setItem(PROGRESS_KEY, JSON.stringify([...next]));
-      renderDashboard(1);
-    });
-  });
+  document.querySelectorAll('[data-level]').forEach(button =>
+    button.addEventListener('click', () => renderDashboard(Number(button.dataset.level)))
+  );
+  document.querySelector('#prev')?.addEventListener('click', () => renderDashboard(active.id - 1));
+  document.querySelector('#next')?.addEventListener('click', () => renderDashboard(active.id + 1));
 }
-
-function renderLesson(course, done) {
-  return `<section class="lesson-panel">
-    <button id="back" class="text-button">← Retour aux niveaux</button>
-    <div class="eyebrow">NIVEAU 01 · LES BASES</div>
-    <h2>${escapeHtml(course.title)}</h2>
-    <p>${escapeHtml(course.subtitle)}</p>
-    <div class="lesson-list">
-      ${course.topics.map((topic, i) => `
-        <div class="lesson-row"><span class="lesson-index">${String(i + 1).padStart(2,'0')}</span>
-          <div><strong>${escapeHtml(topic)}</strong><small>Leçon ${i + 1} · Contenu en préparation</small></div>
-          <button data-complete="${i + 1}" class="check-button ${done.includes(i + 1) ? 'checked' : ''}" aria-label="${done.includes(i + 1) ? 'Marquer comme non terminée' : 'Marquer comme terminée'}">${done.includes(i + 1) ? '✓ Terminée' : 'Marquer comme vue'}</button>
-        </div>`).join('')}
+function renderStairs() {
+  return `<div class="eyebrow">SUPPORT DE PRÉSENTATION · PARCOURS COMPLET</div>
+    <h1 class="page-title">Les 9 marches <span>de l'IA</span></h1>
+    <p class="page-subtitle">De la simple question à l'orchestration de plusieurs modèles. Sélectionnez une marche pour présenter le niveau.</p>
+    <div class="stair-legend"><span>1 · Premiers pas</span><span>9 · Systèmes avancés</span></div>
+    <section class="staircase" aria-label="Escalier des neuf niveaux d'IA">
+      ${courses.map((c,i) => `
+        <button class="stair" data-level="${c.id}" style="--n:${i}" aria-label="Niveau ${c.id} : ${escapeHtml(c.title)}">
+          <span class="stair-number">${String(c.id).padStart(2,'0')}</span>
+          <span class="stair-name">${escapeHtml(c.title)}</span>
+          <span class="stair-arrow" aria-hidden="true">↗</span>
+        </button>`).join('')}
+    </section>
+    <p class="stair-caption">Chaque marche représente une manière plus élaborée d'utiliser l'IA. Il s'agit d'un parcours pédagogique, pas d'une certification officielle.</p>`;
+}
+function renderLevel(c) {
+  return `<div class="level-page">
+    <button id="back" class="text-button">← Retour à l'escalier</button>
+    <div class="level-hero"><div class="level-big-number">${String(c.id).padStart(2,'0')}</div>
+      <div><div class="eyebrow">NIVEAU ${c.id} SUR 9 · PRATIQUE DE L'IA</div><h1>${escapeHtml(c.title)}</h1><p>${escapeHtml(c.subtitle)}</p></div>
     </div>
-    <p class="lesson-disclaimer">Prototype : les leçons seront rédigées et illustrées progressivement. La progression est conservée dans ce navigateur.</p>
-  </section>`;
+    <div class="level-sections">
+      <section class="level-block"><div class="eyebrow">EN QUOI ÇA CONSISTE ?</div><h2>Comprendre le niveau</h2><p>${escapeHtml(c.description)}</p><div class="keyword">${escapeHtml(c.keyword)}</div></section>
+      <section class="level-block"><div class="eyebrow">EXEMPLE À PROJETER</div><h2>En pratique</h2><blockquote>${escapeHtml(c.example)}</blockquote><div class="eyebrow">DÉMONSTRATION EN DIRECT</div><p>${escapeHtml(c.practice)}</p></section>
+    </div>
+    <nav class="level-navigation" aria-label="Navigation entre les niveaux">
+      ${c.id > 1 ? '<button id="prev" class="ghost-button">← Niveau précédent</button>' : '<span></span>'}
+      ${c.id < 9 ? '<button id="next" class="primary-button next-level">Niveau suivant →</button>' : '<span></span>'}
+    </nav>
+  </div>`;
 }
-
 if (isLoggedIn()) renderDashboard();
 else renderLogin();
